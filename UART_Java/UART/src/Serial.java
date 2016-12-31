@@ -1,0 +1,97 @@
+import gnu.io.CommPort;
+import gnu.io.CommPortIdentifier;
+import gnu.io.SerialPort;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.Exception;
+
+public class Serial {
+	private CommPortIdentifier commPortIdentifier;
+	private CommPort commPort;
+	private SerialPort serialPort;
+	private InputStream in;
+	private OutputStream out;
+	
+	private static final int PORT = 5050;
+	private static final int BAUD_RATE = 9600;
+
+	public Serial() {
+		super();
+	}
+
+	public void connect(String port) throws Exception {
+		commPortIdentifier = CommPortIdentifier.getPortIdentifier(port);
+		
+		if(commPortIdentifier.isCurrentlyOwned())
+			System.out.println("Error : Port is Currently Used");
+		else {
+			commPort = commPortIdentifier.open(this.getClass().getName(), PORT);
+			
+			if(commPort instanceof CommPort) {
+				serialPort = (SerialPort) commPort;
+				serialPort.setSerialPortParams( // UART 8N1 
+						BAUD_RATE, 
+						SerialPort.DATABITS_8, 
+						SerialPort.STOPBITS_1, 
+						SerialPort.PARITY_NONE
+				);
+				
+				System.out.println("Serial Communication Port Connected.");
+
+				in = serialPort.getInputStream();
+				out = serialPort.getOutputStream();
+				
+				new Thread(new SerialReceiver(in)).start();
+				new Thread(new SerialTransmitter(out)).start();
+			}
+		}
+	}
+}
+
+class SerialReceiver implements Runnable {
+	private InputStream in;
+	
+	public SerialReceiver(InputStream in) {
+		// TODO Auto-generated constructor stub
+		this.in = in;
+	}
+	
+	@Override
+	public void run() {
+		byte[] buffer = new byte[1024];
+		int bData;
+
+		try {
+			while((bData = this.in.read(buffer)) > -1)
+				System.out.print(new String(buffer, 0, bData));
+		} catch(Exception e) {
+			e.printStackTrace();
+			try { in.close(); } catch (IOException e1) { e1.printStackTrace(); }
+		} 
+	}
+}
+
+class SerialTransmitter implements Runnable {
+	private OutputStream out;
+	
+	public SerialTransmitter(OutputStream out) {
+		// TODO Auto-generated constructor stub
+		this.out = out;
+	}
+	
+	@Override
+	public void run() {
+		int bData;
+		
+		try{
+			while((bData = System.in.read()) > -1)
+				this.out.write(bData);
+			
+		} catch(Exception e) {
+			e.printStackTrace();
+			try { out.close(); } catch (IOException e1) { e1.printStackTrace(); }
+		}
+	}
+}
